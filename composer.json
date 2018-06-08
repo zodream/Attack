@@ -17,7 +17,9 @@
         "zodream/zodream" : "dev-master",
         "zodream/disk" : "dev-master",
         "zodream/helpers" : "dev-master",
-        "zodream/http" : "dev-master"
+        "zodream/http" : "dev-master",
+        "zodream/route" : "dev-master",
+        "zodream/template" : "dev-master"
     },
     "autoload": {
         "psr-4": {

@@ -2,7 +2,7 @@
 <?php
 use Zodream\Service\Console;
 
-defined('DEBUG') or define('DEBUG', true);                  //是否开启测试模式
+define('DEBUG', true);                  //是否开启测试模式
 define('APP_DIR', __DIR__);            //定义路径
 require_once APP_DIR.'/vendor/autoload.php';
 
