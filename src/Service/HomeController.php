@@ -14,10 +14,16 @@ class HomeController extends Controller {
      * 启动扫描器
      * @param $dir
      * @param null $rule
+     * @param null $out
      */
-    public function scanAction($dir, $rule = null) {
+    public function scanAction($dir, $rule = null, $out = null) {
         $scanner = new Scanner();
-        $scanner->setRules(explode(';', $rule));
+        if (!empty($rule)) {
+            $scanner->setRules(explode(';', $rule));
+        }
+        if (!empty($out)) {
+            $scanner->setOutput(Factory::root()->file($out));
+        }
         $scanner->scan(Factory::root()->directory($dir));
     }
 }

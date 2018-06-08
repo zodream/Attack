@@ -1,12 +1,13 @@
 <?php
 namespace Zodream\Module\Attack\Domain;
+
 use Zodream\Disk\Directory;
 use Zodream\Disk\File;
 use Zodream\Disk\FileObject;
 use Zodream\Disk\Stream;
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Http\Request;
-
+use Exception;
 /**
  * Created by PhpStorm.
  * User: zx648
@@ -41,12 +42,22 @@ class Scanner {
             '(eval\s*\(\s*\(\s*\$\$(\w+))',
             '((eval|assert|include|require|include\_once|require\_once|array\_map|array\_walk)+\s*\(\s*\$\_(GET|POST|REQUEST|COOKIE|SERVER|SESSION)+\[(.*)\]\s*\))',
             '(preg\_replace\s*\((.*)\(base64\_decode\(\$)',
-            '(?<![a-z0-9_])eval\((base64|eval|\$_|\$\$|\$[A-Za-z_0-9\{]*(\(|\{|\[))'
+            '(?<![a-z0-9_])eval\((base64|eval|\$_|\$\$|\$[A-Za-z_0-9\{]*(\(|\{|\[))',
+            'fopen\(\s*\$_(POST|GET|REQUEST)'
         ],
         'asp' => [
             '<%(execute|eval)\s*request(.+)%>'
         ]
     ];
+    /**
+     * @var Stream
+     */
+    protected $output;
+
+    public function setOutput($stream) {
+        $this->output = $stream instanceof Stream ? $stream : new Stream($stream);
+        return $this;
+    }
 
     public function addRule($rule, $type = 'php') {
         if (!is_array($rule)) {
@@ -84,7 +95,7 @@ class Scanner {
 
     public function check(File $file) {
         // 以1M为分割点
-        if ($file->size() > 1000000) {
+        if ($file->size() < 1000000) {
             $content = $file->read();
             return $this->checkRules($content);
         }
@@ -95,15 +106,19 @@ class Scanner {
     }
 
     public function checkStream(Stream $stream) {
-        $stream->open('r');
-        while (!$stream->isEnd()) {
-            $line = $stream->readLine();
-            if (empty($line)) {
-                continue;
+        try {
+            $stream->open('r');
+            while (!$stream->isEnd()) {
+                $line = $stream->readLine();
+                if (empty($line)) {
+                    continue;
+                }
+                if ($this->checkRules($line)) {
+                    return true;
+                }
             }
-            if ($this->checkRules($line)) {
-                return true;
-            }
+        } catch (Exception $ex) {
+            return false;
         }
         return false;
     }
@@ -119,6 +134,9 @@ class Scanner {
     public function checkRules($content) {
         foreach ($this->rules as $rules) {
             foreach ($rules as $rule) {
+                if (empty($rule)) {
+                    continue;
+                }
                 if ($this->checkRule($content, $rule)) {
                     return true;
                 }
@@ -130,6 +148,15 @@ class Scanner {
     public function addErrorFile(File $file) {
         if (Request::isCli()) {
             echo (string)$file,PHP_EOL;
+        }
+        if ($this->output) {
+            $this->output->writeLine($file);
+        }
+    }
+
+    public function __destruct() {
+        if ($this->output) {
+            $this->output->close();
         }
     }
 }
