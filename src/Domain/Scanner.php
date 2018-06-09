@@ -8,6 +8,8 @@ use Zodream\Disk\Stream;
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Http\Request;
 use Exception;
+use Zodream\Module\Attack\Domain\Parser\PhpParser;
+
 /**
  * Created by PhpStorm.
  * User: zx648
@@ -103,6 +105,13 @@ class Scanner {
         $result = $this->checkStream($stream);
         $stream->close();
         return $result;
+    }
+
+    public function checkPHP($content) {
+        $parser = new PhpParser($content);
+        if (!$parser->isScript()) {
+            return false;
+        }
     }
 
     public function checkStream(Stream $stream) {
