@@ -19,7 +19,8 @@
         "zodream/helpers" : "dev-master",
         "zodream/http" : "dev-master",
         "zodream/route" : "dev-master",
-        "zodream/template" : "dev-master"
+        "zodream/template" : "dev-master",
+        "nikic/php-parser": "^4.0"
     },
     "autoload": {
         "psr-4": {
