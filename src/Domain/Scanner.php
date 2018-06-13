@@ -96,7 +96,16 @@ class Scanner {
 
 
     public function check(File $file) {
-        // 以1M为分割点
+        // 第一步比较文件信息
+        $result = $this->mapRule(function ($rule) use ($file) {
+            if ($this->checkFileRule($file, $rule)) {
+                return true;
+            }
+        });
+        if ($result) {
+            return true;
+        }
+        // 第二步比较特征值 以1M为分割点
         if ($file->size() < 1000000) {
             $content = $file->read();
             return $this->checkRules($content);
@@ -107,6 +116,11 @@ class Scanner {
         return $result;
     }
 
+    /**
+     * 比较危险程度
+     * @param $content
+     * @return bool
+     */
     public function checkPHP($content) {
         $parser = new PhpParser($content);
         if (!$parser->isScript()) {
@@ -136,17 +150,67 @@ class Scanner {
         return preg_match(sprintf('#%s#i', $rule), $content, $match);
     }
 
+    public function checkFileRule(File $file, $rule) {
+        if (strpos($rule, ':') === false) {
+            return false;
+        }
+        list($tag, $rule) = explode(':', $rule, 2);
+        if ($tag == 'name') {
+            return $this->checkRule($file->getName(), $rule);
+        }
+        if ($tag == 'md5') {
+            return $file->md5() === $rule;
+        }
+        if ($tag == 'date') {
+            return $this->checkFileTime($file->modifyTime(),
+                $rule.' 00:00:00', $rule.' 23:59:59');
+        }
+        if ($tag == 'time') {
+            $args = explode(',', $rule);
+            return $this->checkFileTime($file->modifyTime(), $args[0],
+                isset($args[1]) ? $args[1] : null);
+        }
+        return false;
+    }
+
+    protected function checkFileTime($modify, $start_at = null, $end_at = null) {
+        if (!empty($start_at)) {
+            $start_at = strtotime($start_at);
+        }
+        if (!empty($end_at)) {
+            $end_at = strtotime($end_at);
+        }
+        if (empty($start_at) && empty($end_at)) {
+            return false;
+        }
+        if (empty($start_at)) {
+            return $modify <= $end_at;
+        }
+        if (empty($end_at)) {
+            return $modify >= $start_at;
+        }
+        return $modify >= $start_at && $modify <= $end_at;
+    }
+
     /**
      * @param $content
      * @return bool
      */
     public function checkRules($content) {
+        return $this->mapRule(function ($rule) use ($content) {
+            if ($this->checkRule($content, $rule)) {
+                return true;
+            }
+        });
+    }
+
+    public function mapRule(callable $callback) {
         foreach ($this->rules as $rules) {
             foreach ($rules as $rule) {
                 if (empty($rule)) {
                     continue;
                 }
-                if ($this->checkRule($content, $rule)) {
+                if (true === call_user_func($callback, $rule)) {
                     return true;
                 }
             }
