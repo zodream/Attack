@@ -26,5 +26,16 @@
         "psr-4": {
             "Zodream\\Module\\Attack\\": "src/"
         }
+    },
+    "extra": {
+        "phar-builder": {
+            "compression": "GZip",
+            "name": "attack.phar",
+            "output-dir": "../",
+            "entry-point": "./artisan",
+            "include": ["bin","js","css"],
+            "include-dev": false,
+            "skip-shebang": false
+        }
     }
 }

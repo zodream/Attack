@@ -126,6 +126,7 @@ class Scanner {
         if (!$parser->isScript()) {
             return false;
         }
+
     }
 
     public function checkStream(Stream $stream) {
