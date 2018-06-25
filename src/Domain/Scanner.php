@@ -105,6 +105,16 @@ class Scanner {
         if ($result) {
             return true;
         }
+        return $this->checkFileContent($file);
+    }
+
+    public function checkFileContent(File $file) {
+        if ($this->checkAWordFile($file)) {
+            return true;
+        }
+        if ($this->checkImageFile($file)) {
+            return true;
+        }
         // 第二步比较特征值 以1M为分割点
         if ($file->size() < 1000000) {
             $content = $file->read();
@@ -112,6 +122,39 @@ class Scanner {
         }
         $stream = new Stream($file);
         $result = $this->checkStream($stream);
+        $stream->close();
+        return $result;
+    }
+
+    /**
+     * 验证一句话木马，没混淆的
+     * @param File $file
+     * @return bool
+     */
+    public function checkAWordFile(File $file) {
+        if ($file->size() > 1000) {
+            return false;
+        }
+        $content = $file->read();
+        $input_maps = '/\$_(GET|POST|REQUEST|COOKIE|SERVER|FILES)|fread|file_get_contents|curl_exec|base64_decode/';
+        $exec_maps = '/file_put_contents|eval|assert|include|require|include_once|require_once|create_function|popen|exec|proc_open|passthru|call_user_func|\$[\w_]\s*\(/';
+        return preg_match($input_maps, $content, $match) &&
+            preg_match($exec_maps, $content, $match);
+    }
+
+    /**
+     * 图片有脚本必定是木马
+     * @param File $file
+     * @return bool
+     */
+    public function checkImageFile(File $file) {
+        if (!in_array($file->getExtension(), ['png', 'jpg', 'jpeg', 'bmp', 'ico', 'webp'])) {
+            return false;
+        }
+        $stream = new Stream($file);
+        $result = $this->checkStreamWithCallback($stream, function ($line) {
+            return strpos($line,'<?php') !== false;
+        });
         $stream->close();
         return $result;
     }
@@ -130,6 +173,12 @@ class Scanner {
     }
 
     public function checkStream(Stream $stream) {
+        return $this->checkStreamWithCallback($stream, function ($line) {
+           return $this->checkRules($line);
+        });
+    }
+
+    public function checkStreamWithCallback(Stream $stream, callable $callback) {
         try {
             $stream->open('r');
             while (!$stream->isEnd()) {
@@ -137,7 +186,7 @@ class Scanner {
                 if (empty($line)) {
                     continue;
                 }
-                if ($this->checkRules($line)) {
+                if ($callback($line)) {
                     return true;
                 }
             }
