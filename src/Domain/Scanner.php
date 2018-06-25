@@ -30,10 +30,10 @@ class Scanner {
             '(function\_exists\s*\(\s*[\'|\"](popen|exec|proc\_open|passthru)+[\'|\"]\s*\))',
             '((exec|shell\_exec|passthru)+\s*\(\s*\$\_(\w+)\[(.*)\]\s*\))',
             '(\$(\w+)\s*\(\s.chr\(\d+\)\))',
-            '(\$(\w+)\s*\$\{(.*)\})',
+            //'(\$(\w+)\s*\$\{(.*)\})',
             '(\$(\w+)\s*\(\s*\$\_(GET|POST|REQUEST|COOKIE|SERVER)+\[(.*)\]\s*\))',
             '(\$\_(GET|POST|REQUEST|COOKIE|SERVER)+\[(.*)\]\(\s*\$(.*)\))',
-            '(\$\_\=(.*)\$\_)',
+            //'(\$\_\=(.*)\$\_)',
             '(\$(.*)\s*\((.*)\/e(.*)\,\s*\$\_(.*)\,(.*)\))',
             '(new com\s*\(\s*[\'|\"]shell(.*)[\'|\"]\s*\))',
             '(echo\s*curl\_exec\s*\(\s*\$(\w+)\s*\))',
@@ -110,9 +110,15 @@ class Scanner {
 
     public function checkFileContent(File $file) {
         if ($this->checkAWordFile($file)) {
+            $this->debug('一句话木马');
             return true;
         }
         if ($this->checkImageFile($file)) {
+            $this->debug('图片木马');
+            return true;
+        }
+        if ($this->checkPhpLine($file)) {
+            $this->debug('可疑混淆木马');
             return true;
         }
         // 第二步比较特征值 以1M为分割点
@@ -120,8 +126,37 @@ class Scanner {
             $content = $file->read();
             return $this->checkRules($content);
         }
+        if ($file->size() > 20000000) {
+            return false;
+        }
         $stream = new Stream($file);
         $result = $this->checkStream($stream);
+        $stream->close();
+        return $result;
+    }
+
+    /**
+     * 验证文件每行的长度
+     * @param File $file
+     * @return bool
+     */
+    protected function checkPhpLine(File $file) {
+        if (!in_array($file->getExtension(), ['php', 'phtml'])) {
+            return false;
+        }
+        $stream = new Stream($file);
+        $is_php = false;
+        $result = $this->checkStreamWithCallback($stream, function ($line) use (&$is_php) {
+            if (!$is_php && strpos($line, '<?php') !== false) {
+                $is_php = true;
+            }
+            if (!$is_php) {
+                return false;
+            }
+            if (strlen($line) > 1000) {
+                return true;
+            }
+        });
         $stream->close();
         return $result;
     }
@@ -131,7 +166,7 @@ class Scanner {
      * @param File $file
      * @return bool
      */
-    public function checkAWordFile(File $file) {
+    protected function checkAWordFile(File $file) {
         if ($file->size() > 1000) {
             return false;
         }
@@ -147,7 +182,7 @@ class Scanner {
      * @param File $file
      * @return bool
      */
-    public function checkImageFile(File $file) {
+    protected function checkImageFile(File $file) {
         if (!in_array($file->getExtension(), ['png', 'jpg', 'jpeg', 'bmp', 'ico', 'webp'])) {
             return false;
         }
@@ -181,12 +216,15 @@ class Scanner {
     public function checkStreamWithCallback(Stream $stream, callable $callback) {
         try {
             $stream->open('r');
+            $index = -1;
             while (!$stream->isEnd()) {
+                $index ++;
                 $line = $stream->readLine();
                 if (empty($line)) {
                     continue;
                 }
-                if ($callback($line)) {
+                if ($callback($line, $index)) {
+                    $this->debug(sprintf('Line: %s', $index));
                     return true;
                 }
             }
@@ -249,6 +287,7 @@ class Scanner {
     public function checkRules($content) {
         return $this->mapRule(function ($rule) use ($content) {
             if ($this->checkRule($content, $rule)) {
+                $this->debug('内容匹配：'.$rule);
                 return true;
             }
         });
@@ -269,12 +308,17 @@ class Scanner {
     }
 
     public function addErrorFile(File $file) {
-        if (Request::isCli()) {
-            echo (string)$file,PHP_EOL;
-        }
+        $this->debug((string)$file);
         if ($this->output) {
             $this->output->writeLine($file);
         }
+    }
+
+    protected function debug($content) {
+        if (!Request::isCli()) {
+            return;
+        }
+        echo $content,PHP_EOL;
     }
 
     public function __destruct() {
