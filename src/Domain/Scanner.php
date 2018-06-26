@@ -5,6 +5,7 @@ use Zodream\Disk\Directory;
 use Zodream\Disk\File;
 use Zodream\Disk\FileObject;
 use Zodream\Disk\Stream;
+use Zodream\Domain\Debug\Log;
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Http\Request;
 use Exception;
@@ -110,15 +111,15 @@ class Scanner {
 
     public function checkFileContent(File $file) {
         if ($this->checkAWordFile($file)) {
-            $this->debug('一句话木马');
+            Log::error('一句话木马');
             return true;
         }
         if ($this->checkImageFile($file)) {
-            $this->debug('图片木马');
+            Log::error('图片木马');
             return true;
         }
         if ($this->checkPhpLine($file)) {
-            $this->debug('可疑混淆木马');
+            Log::error('可疑混淆木马');
             return true;
         }
         // 第二步比较特征值 以1M为分割点
@@ -224,7 +225,7 @@ class Scanner {
                     continue;
                 }
                 if ($callback($line, $index)) {
-                    $this->debug(sprintf('Line: %s', $index));
+                    Log::error(sprintf('Line: %s', $index));
                     return true;
                 }
             }
@@ -287,7 +288,7 @@ class Scanner {
     public function checkRules($content) {
         return $this->mapRule(function ($rule) use ($content) {
             if ($this->checkRule($content, $rule)) {
-                $this->debug('内容匹配：'.$rule);
+                Log::error('内容匹配：'.$rule);
                 return true;
             }
         });
@@ -308,17 +309,10 @@ class Scanner {
     }
 
     public function addErrorFile(File $file) {
-        $this->debug((string)$file);
+        Log::notice((string)$file);
         if ($this->output) {
             $this->output->writeLine($file);
         }
-    }
-
-    protected function debug($content) {
-        if (!Request::isCli()) {
-            return;
-        }
-        echo $content,PHP_EOL;
     }
 
     public function __destruct() {
