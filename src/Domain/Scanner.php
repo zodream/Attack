@@ -25,7 +25,7 @@ class Scanner {
      */
     protected $rules = [
         'php' => [
-            'cha88.cn|c99shell|phpspy|Scanners|cmd.php|str_rot13|webshell|EgY_SpIdEr|tools88.com|SECFORCE|eval((\'|")?>',  // 后门特征
+            'cha88.cn|c99shell|phpspy|Scanners|cmd.php|str_rot13|webshell|EgY_SpIdEr|tools88.com|SECFORCE|eval\((\'|")?>',  // 后门特征
             '(\$_(GET|POST|REQUEST)\[.{0,15}\]\s{0,10}\(\s{0,10}\$_(GET|POST|REQUEST)\[.{0,15}\]\))',
             '((eval|assert)(\s|\n)*\((\s|\n)*\$_(POST|GET|REQUEST)\[.{0,15}\]\))',
             '(eval(\s|\n)*\(base64_decode(\s|\n)*\((.|\n){1,200})',
@@ -53,6 +53,24 @@ class Scanner {
             '<%(execute|eval)\s*request(.+)%>'
         ]
     ];
+
+    /**
+     * 输入和执行搭配木马
+     * @var array
+     */
+    protected $input_output = [
+        [
+            'ext' => ['php', 'phtml'],
+            'input' => '/\$_(GET|POST|REQUEST|COOKIE|SERVER|FILES)|fread|file_get_contents|curl_exec|base64_decode|\$password|\$pwd/i',
+            'exec' => '/file_put_contents|eval|assert|include|require|include_once|require_once|create_function|popen|exec|proc_open|passthru|call_user_func|\$[\w_]\s*\(/i',
+        ],
+        [
+            'ext' => ['asp'],
+            'input' => '/request\s*\(|Microsoft\.XMLHTTP/i',
+            'exec' => '/ADODB\.Stream|\.SaveToFile|\.Write/i',
+        ]
+    ];
+
     /**
      * @var Stream
      */
@@ -120,7 +138,11 @@ class Scanner {
             return true;
         }
         if ($this->checkPhpLine($file)) {
-            Log::error('可疑混淆木马');
+            Log::error('可疑PHP混淆木马');
+            return true;
+        }
+        if ($this->checkAspLine($file)) {
+            Log::error('可疑ASP混淆木马');
             return true;
         }
         // 第二步比较特征值 以1M为分割点
@@ -146,13 +168,21 @@ class Scanner {
         if (!in_array($file->getExtension(), ['php', 'phtml'])) {
             return false;
         }
+        return $this->checkLineLength($file, '<?php');
+    }
+
+    /**
+     * @param File $file
+     * @return bool
+     */
+    protected function checkLineLength(File $file, $beginTag) {
         $stream = new Stream($file);
-        $is_php = false;
-        $result = $this->checkStreamWithCallback($stream, function ($line) use (&$is_php) {
-            if (!$is_php && strpos($line, '<?php') !== false) {
-                $is_php = true;
+        $is_begin = false;
+        $result = $this->checkStreamWithCallback($stream, function ($line) use (&$is_begin, $beginTag) {
+            if (!$is_begin && strpos($line, $beginTag) !== false) {
+                $is_begin = true;
             }
-            if (!$is_php) {
+            if (!$is_begin) {
                 return false;
             }
             if (strlen($line) > 1000) {
@@ -163,20 +193,35 @@ class Scanner {
         return $result;
     }
 
+    protected function checkAspLine(File $file) {
+        if (!in_array($file->getExtension(), ['asp'])) {
+            return false;
+        }
+        return $this->checkLineLength($file, '<%');
+    }
+
     /**
      * 验证一句话木马，没混淆的
      * @param File $file
      * @return bool
      */
     protected function checkAWordFile(File $file) {
-        if ($file->size() > 1000) {
+       if ($file->size() > 1000) {
+           return false;
+       }
+        $rule = null;
+        foreach ($this->input_output as $item) {
+            if (in_array($file->getExtension(), $item['ext'])) {
+                $rule = $item;
+                break;
+            }
+        }
+        if (empty($rule)) {
             return false;
         }
         $content = $file->read();
-        $input_maps = '/\$_(GET|POST|REQUEST|COOKIE|SERVER|FILES)|fread|file_get_contents|curl_exec|base64_decode/';
-        $exec_maps = '/file_put_contents|eval|assert|include|require|include_once|require_once|create_function|popen|exec|proc_open|passthru|call_user_func|\$[\w_]\s*\(/';
-        return preg_match($input_maps, $content, $match) &&
-            preg_match($exec_maps, $content, $match);
+        return preg_match($rule['input'], $content, $match) &&
+            preg_match($rule['exec'], $content, $match);
     }
 
     /**
@@ -321,4 +366,6 @@ class Scanner {
             $this->output->close();
         }
     }
+
+
 }
