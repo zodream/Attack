@@ -25,6 +25,7 @@ class Scanner {
      */
     protected $rules = [
         'php' => [
+            'cha88.cn|c99shell|phpspy|Scanners|cmd.php|str_rot13|webshell|EgY_SpIdEr|tools88.com|SECFORCE|eval((\'|")?>',  // 后门特征
             '(\$_(GET|POST|REQUEST)\[.{0,15}\]\s{0,10}\(\s{0,10}\$_(GET|POST|REQUEST)\[.{0,15}\]\))',
             '((eval|assert)(\s|\n)*\((\s|\n)*\$_(POST|GET|REQUEST)\[.{0,15}\]\))',
             '(eval(\s|\n)*\(base64_decode(\s|\n)*\((.|\n){1,200})',
