@@ -24,7 +24,7 @@ class Scanner {
      * @var array
      */
     protected $rules = [
-        'php' => [
+        'php|phtml' => [
             'cha88.cn|c99shell|phpspy|Scanners|cmd.php|str_rot13|webshell|EgY_SpIdEr|tools88.com|SECFORCE|eval\((\'|")?>',  // 后门特征
             '(\$_(GET|POST|REQUEST)\[.{0,15}\]\s{0,10}\(\s{0,10}\$_(GET|POST|REQUEST)\[.{0,15}\]\))',
             '((eval|assert)(\s|\n)*\((\s|\n)*\$_(POST|GET|REQUEST)\[.{0,15}\]\))',
@@ -59,13 +59,11 @@ class Scanner {
      * @var array
      */
     protected $input_output = [
-        [
-            'ext' => ['php', 'phtml'],
+        'php|phtml' =>[
             'input' => '/\$_(GET|POST|REQUEST|COOKIE|SERVER|FILES)|fread|file_get_contents|curl_exec|base64_decode|\$password|\$pwd/i',
             'exec' => '/file_put_contents|eval|assert|include|require|include_once|require_once|create_function|popen|exec|proc_open|passthru|call_user_func|\$[\w_]\s*\(/i',
         ],
-        [
-            'ext' => ['asp'],
+        'asp' => [
             'input' => '/request\s*\(|Microsoft\.XMLHTTP/i',
             'exec' => '/ADODB\.Stream|\.SaveToFile|\.Write/i',
         ]
@@ -145,6 +143,9 @@ class Scanner {
             Log::error('可疑ASP混淆木马');
             return true;
         }
+        if (!$this->hasRules($file)) {
+            return false;
+        }
         // 第二步比较特征值 以1M为分割点
         if ($file->size() < 1000000) {
             $content = $file->read();
@@ -160,6 +161,21 @@ class Scanner {
     }
 
     /**
+     * 判断是否有检测规则
+     * @param File $file
+     * @return bool
+     */
+    protected function hasRules(File $file) {
+        foreach ($this->rules as $ext => $rule) {
+            $ext = explode('|', $ext);
+            if (in_array($file->getExtension(), $ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 验证文件每行的长度
      * @param File $file
      * @return bool
@@ -172,13 +188,16 @@ class Scanner {
     }
 
     /**
+     * 判断行的长度
      * @param File $file
+     * @param $beginTag
      * @return bool
      */
     protected function checkLineLength(File $file, $beginTag) {
         $stream = new Stream($file);
         $is_begin = false;
-        $result = $this->checkStreamWithCallback($stream, function ($line) use (&$is_begin, $beginTag) {
+        $length = 0;
+        $result = $this->checkStreamWithCallback($stream, function ($line) use (&$is_begin, &$length, $beginTag) {
             if (!$is_begin && strpos($line, $beginTag) !== false) {
                 $is_begin = true;
             }
@@ -186,6 +205,14 @@ class Scanner {
                 return false;
             }
             if (strlen($line) > 1000) {
+                return true;
+            }
+            if (preg_match('#[a-z0-9/\+]{20,}#i', $line, $match)) {
+                // 混淆代码截断判断
+                $length += strlen($match[0]);
+                return false;
+            }
+            if ($length > 1000) {
                 return true;
             }
         });
@@ -210,8 +237,9 @@ class Scanner {
            return false;
        }
         $rule = null;
-        foreach ($this->input_output as $item) {
-            if (in_array($file->getExtension(), $item['ext'])) {
+        foreach ($this->input_output as $ext => $item) {
+            $ext = explode('|', $ext);
+            if (in_array($file->getExtension(), $ext)) {
                 $rule = $item;
                 break;
             }
