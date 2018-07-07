@@ -6,8 +6,6 @@ use Zodream\Disk\File;
 use Zodream\Disk\FileObject;
 use Zodream\Disk\Stream;
 use Zodream\Domain\Debug\Log;
-use Zodream\Helpers\Arr;
-use Zodream\Infrastructure\Http\Request;
 use Exception;
 use Zodream\Module\Attack\Domain\Parser\PhpParser;
 
@@ -23,36 +21,7 @@ class Scanner {
      * 安全扫描规则
      * @var array
      */
-    protected $rules = [
-        'php|phtml' => [
-            'cha88.cn|c99shell|phpspy|Scanners|cmd.php|str_rot13|webshell|EgY_SpIdEr|tools88.com|SECFORCE|eval\((\'|")?>',  // 后门特征
-            '(\$_(GET|POST|REQUEST)\[.{0,15}\]\s{0,10}\(\s{0,10}\$_(GET|POST|REQUEST)\[.{0,15}\]\))',
-            '((eval|assert)(\s|\n)*\((\s|\n)*\$_(POST|GET|REQUEST)\[.{0,15}\]\))',
-            '(eval(\s|\n)*\(base64_decode(\s|\n)*\((.|\n){1,200})',
-            '(function\_exists\s*\(\s*[\'|\"](popen|exec|proc\_open|passthru)+[\'|\"]\s*\))',
-            '((exec|shell\_exec|passthru)+\s*\(\s*\$\_(\w+)\[(.*)\]\s*\))',
-            '(\$(\w+)\s*\(\s.chr\(\d+\)\))',
-            //'(\$(\w+)\s*\$\{(.*)\})',
-            '(\$(\w+)\s*\(\s*\$\_(GET|POST|REQUEST|COOKIE|SERVER)+\[(.*)\]\s*\))',
-            '(\$\_(GET|POST|REQUEST|COOKIE|SERVER)+\[(.*)\]\(\s*\$(.*)\))',
-            //'(\$\_\=(.*)\$\_)',
-            '(\$(.*)\s*\((.*)\/e(.*)\,\s*\$\_(.*)\,(.*)\))',
-            '(new com\s*\(\s*[\'|\"]shell(.*)[\'|\"]\s*\))',
-            '(echo\s*curl\_exec\s*\(\s*\$(\w+)\s*\))',
-            '((fopen|fwrite|fputs|file\_put\_contents)+\s*\((.*)\$\_(GET|POST|REQUEST|COOKIE|SERVER)+\[(.*)\](.*)\))',
-            '(\(\s*\$\_FILES\[(.*)\]\[(.*)\]\s*\,\s*\$\_(GET|POST|REQUEST|FILES)+\[(.*)\]\[(.*)\]\s*\))',
-            '(\$\_(\w+)(.*)(eval|assert|include|require|include\_once|require\_once)+\s*\(\s*\$(\w+)\s*\))',
-            '((include|require|include\_once|require\_once)+\s*\(\s*[\'|\"](\w+)\.(jpg|gif|ico|bmp|png|txt|zip|rar|htm|css|js)+[\'|\"]\s*\))',
-            '(eval\s*\(\s*\(\s*\$\$(\w+))',
-            '((eval|assert|include|require|include\_once|require\_once|array\_map|array\_walk)+\s*\(\s*\$\_(GET|POST|REQUEST|COOKIE|SERVER|SESSION)+\[(.*)\]\s*\))',
-            '(preg\_replace\s*\((.*)\(base64\_decode\(\$)',
-            '(?<![a-z0-9_])eval\((base64|eval|\$_|\$\$|\$[A-Za-z_0-9\{]*(\(|\{|\[))',
-            'fopen\(\s*\$_(POST|GET|REQUEST)'
-        ],
-        'asp' => [
-            '<%(execute|eval)\s*request(.+)%>'
-        ]
-    ];
+    protected $rules = [];
 
     /**
      * 输入和执行搭配木马
@@ -79,23 +48,25 @@ class Scanner {
         return $this;
     }
 
-    public function addRule($rule, $type = 'php') {
+    /**
+     * @return array
+     */
+    public function getRules() {
+        if (empty($this->rules)) {
+            $this->rules = include_once 'rules.php';
+        }
+        return $this->rules;
+    }
+
+    public function addRule($rule, $name = null) {
         if (!is_array($rule)) {
-            $rule = [$rule];
+            $rule = [$rule => $name];
         }
-        if (!isset($this->rules[$type])) {
-            $this->rules[$type] = [];
-        }
-        $this->rules[$type] = array_merge($this->rules[$type], $rule);
+        $this->rules = array_merge($this->rules, $rule);
         return $this;
     }
 
     public function setRules(array $rules) {
-        if (!Arr::isMultidimensional($rules)) {
-            $rules = [
-                'php' => $rules
-            ];
-        }
         $this->rules = $rules;
         return $this;
     }
@@ -143,9 +114,9 @@ class Scanner {
             Log::error('可疑ASP混淆木马');
             return true;
         }
-        if (!$this->hasRules($file)) {
-            return false;
-        }
+//        if (!$this->hasRules($file)) {
+//            return false;
+//        }
         // 第二步比较特征值 以1M为分割点
         if ($file->size() < 1000000) {
             $content = $file->read();
@@ -212,9 +183,7 @@ class Scanner {
                 $length += strlen($match[0]);
                 return false;
             }
-            if ($length > 1000) {
-                return true;
-            }
+            return $length > 1000;
         });
         $stream->close();
         return $result;
@@ -310,7 +279,7 @@ class Scanner {
     }
 
     public function checkRule($content, $rule) {
-        return preg_match(sprintf('#%s#i', $rule), $content, $match);
+        return preg_match($rule, $content, $match);
     }
 
     public function checkFileRule(File $file, $rule) {
@@ -360,24 +329,94 @@ class Scanner {
      * @return bool
      */
     public function checkRules($content) {
-        return $this->mapRule(function ($rule) use ($content) {
+        return $this->mapRule(function ($rule, $name) use ($content) {
             if ($this->checkRule($content, $rule)) {
-                Log::error('内容匹配：'.$rule);
+                Log::error(sprintf('内容匹配：%s， %s', $rule, $this->getFormatName($name)));
                 return true;
             }
         });
     }
 
+    protected function getFormatName($name) {
+        if (!preg_match('#(.*)\[(.*?)\]\[(.*?)\]\[(.*?)\]#', $name, $match)) {
+            return '';
+        }
+        $grade = [
+            '可疑',
+            '恶意',
+            '危险',
+        ];
+        return sprintf(' %s(%s) %s', $match[1], $match[4], $grade[$match[3]]);
+    }
+
     public function mapRule(callable $callback) {
-        foreach ($this->rules as $rules) {
-            foreach ($rules as $rule) {
-                if (empty($rule)) {
-                    continue;
-                }
-                if (true === call_user_func($callback, $rule)) {
-                    return true;
-                }
+        foreach ($this->getRules() as $rule => $name) {
+            if (true === call_user_func($callback, $rule, $name)) {
+                return true;
             }
+        }
+        return false;
+    }
+
+
+    protected function checkPhpScript($content) {
+        // %(preg_replace.*\/e|`.*?\$.*?`|\bcreate_function\b|\bpassthru\b|\bshell_exec\b|\bexec\b|\bbase64_decode\b|\bedoced_46esab\b|\beval\b|\bsystem\b|\bproc_open\b|\bpopen\b|\bcurl_exec\b|\bcurl_multi_exec\b|\bparse_ini_file\b|\bshow_source\b)%
+        $encoded_content = $this->getEncodeContent($content);
+        if (empty($encoded_content)) {
+            return false;
+        }
+        $encoded_content64 = base64_encode($encoded_content);
+        return $this->checkRules($encoded_content64);
+    }
+
+    protected function getEncodeContent($content) {
+        $counter = 0;
+        $encoded_content = preg_replace('/<\?php|\?>|<\?/', '', $content);
+        $temp = array();
+        if (preg_match('/(\beval\b\(gzinflate|\beval\b\(base64_decode)/', $encoded_content)) {
+            while (preg_match('/\beval\((gzinflate|base64_decode)\((.*?)\);/', $encoded_content, $matches)) {
+                $encoded_content = preg_replace('/<\?php|\?>|<\?|eval/', '', $encoded_content);
+                $temp = $matches;
+                if (isset($matches[1]) && isset($matches[2]) && strpos($matches[2], '$') === false) {
+                    eval('\$encoded_content = ' . $matches[1] . '(' . $matches[2] . ';');
+                } else if (isset($matches[1]) && isset($matches[2]) && strpos($matches[2], '$') !== false) {
+                    preg_match('/\$(.*?)\)/', $matches[2], $variable);
+                    if (isset($variable[1])) {
+                        preg_match('/\$' . $variable[1] . '=(.*?);/', $content, $content_match);
+                        if (isset($content_match[1])) {
+                            $content_temp = $matches[1] . '(' . str_replace('$' . $variable[1], $content_match[1], $matches[2]);
+                            eval('$encoded_content = ' . $content_temp . ';');
+                        } else {
+                            $encoded_content = '';
+                        }
+                    } else {
+                        $encoded_content = '';
+                    }
+                } else {
+                    $encoded_content = '';
+                }
+                if ($counter > 20) {
+                    //protect from looping
+                    break;
+                }
+                $counter++;
+            }
+            return $encoded_content;
+        }
+        if (preg_match('/preg_replace.*\/e"/', $encoded_content)) {
+            while (preg_match('/preg_replace\((.*?)\/e(.*)\);/', $encoded_content, $matches)) {
+                $encoded_content = preg_replace('/<\?php|\?>|<\?/', '', $encoded_content);
+                preg_replace('/preg_replace\((.*?)\/e(.*)\);/', '', $encoded_content);
+                if (isset($matches[1]) && isset($matches[2])) {
+                    eval('$encoded_content = preg_replace(' . $matches[1] . '/' . $matches[2] . ');');
+                }
+                if ($counter > 20) {
+                    //protect from looping
+                    break;
+                }
+                $counter++;
+            }
+            return $encoded_content;
         }
         return false;
     }
