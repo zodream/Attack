@@ -53,7 +53,7 @@ return array (
     '/6L2FwcHNlcnYvd3d3L3NoZWxscy8iPgogICAgICAgIDxmb250IGNvbG9yPSIjREN/' => 'stressbypass[0][0][php]',
     '/0gc3pDTUQsIHN6VGVtcEZpbGUKCk9uIEVycm9yIFJlc3VtZSBOZXh0CgonIC0tIG/' => 'cmd[1][0][asp]',
     '/9tbWFuZDogPGlucHV0IG5hbWUgPSAnY21kJz5cbiI7DQogICAgICAgICBlY2hvIC/' => 'darkshell[0][0][php]',
-    '/version/' => '1405674947',
+
     '/icvcHVibGljX2h0bWwvaW5jL2NvbmZpZy5pbmMucGhwJywkdXNlci4nLTMzLnR4d/' => 'configspy[1][0][php]',
     '/VDBNRjhEa3NxcVJjVlBvT1FkUm1hcWc3eExveGMrS1FLUHE3N3p6OVBieHlWYldM/' => 'isko[0][0][php]',
     '/tZSggJF9GSUxFU1sndXBsb2FkZWRmaWxlJ11bJ25hbWUnXSkgb3IgZGllKCRlcnJ/' => 'phpfilemanager[4][0][php]',

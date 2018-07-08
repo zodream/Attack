@@ -114,9 +114,9 @@ class Scanner {
             Log::error('可疑ASP混淆木马');
             return true;
         }
-//        if (!$this->hasRules($file)) {
-//            return false;
-//        }
+        if (!$this->hasRules($file)) {
+            return false;
+        }
         // 第二步比较特征值 以1M为分割点
         if ($file->size() < 1000000) {
             $content = $file->read();
@@ -137,13 +137,7 @@ class Scanner {
      * @return bool
      */
     protected function hasRules(File $file) {
-        foreach ($this->rules as $ext => $rule) {
-            $ext = explode('|', $ext);
-            if (in_array($file->getExtension(), $ext)) {
-                return true;
-            }
-        }
-        return false;
+        return in_array($file->getExtension(), ['php', 'asp', 'phtml']);
     }
 
     /**
