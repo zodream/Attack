@@ -9,4 +9,5 @@ require_once APP_DIR.'/vendor/autoload.php';
 config()->set('modules', [
         'default' => 'Zodream\Module\Attack',
 ]);
-Console::main()->send();
+$app = new Console(APP_DIR);
+$app->handle()->send();
