@@ -10,4 +10,4 @@ config()->set('modules', [
         'default' => 'Zodream\Module\Attack',
 ]);
 $app = new Console(APP_DIR);
-$app->handle()->send();
+$app->autoResponse();

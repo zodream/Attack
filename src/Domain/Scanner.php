@@ -5,7 +5,7 @@ use Zodream\Disk\Directory;
 use Zodream\Disk\File;
 use Zodream\Disk\FileObject;
 use Zodream\Disk\Stream;
-use Zodream\Domain\Debug\Log;
+use Zodream\Debugger\Domain\Log;
 use Exception;
 use Zodream\Module\Attack\Domain\Parser\PhpParser;
 
