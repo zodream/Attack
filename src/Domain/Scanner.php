@@ -53,7 +53,7 @@ class Scanner {
      */
     public function getRules() {
         if (empty($this->rules)) {
-            $this->rules = include_once 'rules.php';
+            $this->rules = include_once '../dict/scan_rules.php';
         }
         return $this->rules;
     }
