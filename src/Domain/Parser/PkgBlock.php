@@ -28,10 +28,10 @@ class PkgBlock {
     }
 
     public function addInterface($name) {
-        return $this->addClass($name)->setType(ClassType::TYPE_INTERFACE);
+        return $this->addClass($name)->setType(ClsBlock::TYPE_INTERFACE);
     }
 
-    public function addTrait(string $name): ClassType {
-        return $this->addClass($name)->setType(ClassType::TYPE_TRAIT);
+    public function addTrait(string $name) {
+        return $this->addClass($name)->setType(ClsBlock::TYPE_TRAIT);
     }
 }
