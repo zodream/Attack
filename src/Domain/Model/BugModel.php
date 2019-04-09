@@ -12,6 +12,7 @@ use Domain\Model\Model;
  * @property string $uri
  * @property integer $grade
  * @property string $related
+ * @property string $related_version
  * @property string $description
  * @property string $check_rule
  * @property string $solution
@@ -37,6 +38,7 @@ class BugModel extends Model {
             'uri' => 'string:0,255',
             'grade' => 'int:0,99',
             'related' => 'string:0,255',
+            'related_version' => 'string:0,20',
             'description' => 'string:0,255',
             'check_rule' => 'string:0,255',
             'solution' => 'string:0,255',
@@ -50,16 +52,17 @@ class BugModel extends Model {
     protected function labels() {
         return [
             'id' => 'Id',
-            'name' => 'Name',
-            'type' => 'Type',
-            'uri' => 'Uri',
-            'grade' => 'Grade',
-            'related' => 'Related',
-            'description' => 'Description',
-            'check_rule' => 'Check Rule',
-            'solution' => 'Solution',
-            'source' => 'Source',
-            'status' => 'Status',
+            'name' => '名称',
+            'type' => '类型',
+            'uri' => '漏洞网址或路径',
+            'grade' => '危害等级',
+            'related' => '影响产品',
+            'related_version' => '影响产品版本',
+            'description' => '说明',
+            'check_rule' => '验证检测规则',
+            'solution' => '解决方案',
+            'source' => '漏洞来源',
+            'status' => '状态',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];

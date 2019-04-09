@@ -17,6 +17,8 @@ class CreateBugTables extends Migration {
             $table->set('uri')->varchar()->defaultVal('')->comment('漏洞网址或路径');
             $table->set('grade')->tinyint(2)->defaultVal(5)->comment('危害等级');
             $table->set('related')->varchar()->defaultVal('')->comment('影响产品');
+            $table->set('related_version')->varchar(20)
+                ->defaultVal('')->comment('影响产品版本');
             $table->set('description')->varchar()->defaultVal('')->comment('说明');
             $table->set('check_rule')->varchar()->defaultVal('')->comment('验证是否受影响检测规则');
             $table->set('solution')->varchar()->defaultVal('')->comment('解决方案');

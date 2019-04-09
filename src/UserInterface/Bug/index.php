@@ -11,8 +11,8 @@ $this->title = 'ZoDream';
                 <input type="text" class="form-control" name="keywords" id="keywords" placeholder="名称">
             </div>
             <button type="submit" class="btn btn-default">搜索</button>
+            <a class="btn btn-success pull-right" href="<?=$this->url('./bug/create')?>">新增漏洞</a>
         </form>
-        <a class="btn btn-success pull-right" href="<?=$this->url('./bug/create')?>">新增应用</a>
     </div>
 
     <table class="table  table-bordered well">

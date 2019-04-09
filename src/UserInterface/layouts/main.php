@@ -5,7 +5,6 @@ use Zodream\Html\Dark\Layout;
 /** @var $this View */
 $this->registerCssFile([
     '@font-awesome.min.css',
-    '@prism.css',
     '@zodream.css',
     '@zodream-admin.css',
     '@bug.css'
@@ -16,7 +15,7 @@ $this->registerCssFile([
 ]);
 ?>
 
-<?= Layout::mainIfPjax($this, [
+<?= Layout::main($this, [
     [
         '首页',
         './',
@@ -40,4 +39,4 @@ $this->registerCssFile([
         ],
         true
     ]
-], 'ZoDream Bug') ?>
+], $content, 'ZoDream Bug') ?>
